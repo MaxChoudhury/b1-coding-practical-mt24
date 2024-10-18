@@ -74,9 +74,21 @@ class Mission:
         return cls(reference, cave_height, cave_depth)
 
     @classmethod
-    def from_csv(cls, file_name: str):
-        # You are required to implement this method
-        pass
+    def from_csv(cls, file_name: str):  
+        # Read the CSV file using pandas
+        data = pd.read_csv(file_name)
+
+        # Ensure the CSV has the necessary columns
+        if not {'reference', 'cave_height', 'cave_depth'}.issubset(data.columns):
+            raise ValueError("CSV must contain 'reference', 'cave_height', and 'cave_depth' columns")
+
+        # Convert the relevant columns to NumPy arrays
+        reference = data['reference'].to_numpy()
+        cave_height = data['cave_height'].to_numpy()
+        cave_depth = data['cave_depth'].to_numpy()
+
+        # Return an instance of the Mission class
+        return cls(reference, cave_height, cave_depth)
 
 
 class ClosedLoop:
