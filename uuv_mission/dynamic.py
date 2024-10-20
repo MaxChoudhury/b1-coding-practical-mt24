@@ -1,24 +1,22 @@
+# dynamic.py
+
 from __future__ import annotations
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from terrain import generate_reference_and_limits
+from .terrain import generate_reference_and_limits
 
 class Submarine:
     def __init__(self):
-
         self.mass = 1
         self.drag = 0.1
         self.actuator_gain = 1
-
-        self.dt = 1 # Time step for discrete time simulation
-
+        self.dt = 1  # Time step for discrete time simulation
         self.pos_x = 0
         self.pos_y = 0
-        self.vel_x = 1 # Constant velocity in x direction
+        self.vel_x = 1  # Constant velocity in x direction
         self.vel_y = 0
-
 
     def transition(self, action: float, disturbance: float):
         self.pos_x += self.vel_x * self.dt
@@ -39,11 +37,11 @@ class Submarine:
         self.pos_y = 0
         self.vel_x = 1
         self.vel_y = 0
-    
+
 class Trajectory:
     def __init__(self, position: np.ndarray):
         self.position = position  
-        
+
     def plot(self):
         plt.plot(self.position[:, 0], self.position[:, 1])
         plt.show()
@@ -54,10 +52,8 @@ class Trajectory:
         max_height = np.max(mission.cave_height)
 
         plt.fill_between(x_values, mission.cave_height, mission.cave_depth, color='blue', alpha=0.3)
-        plt.fill_between(x_values, mission.cave_depth, min_depth*np.ones(len(x_values)), 
-                         color='saddlebrown', alpha=0.3)
-        plt.fill_between(x_values, max_height*np.ones(len(x_values)), mission.cave_height, 
-                         color='saddlebrown', alpha=0.3)
+        plt.fill_between(x_values, mission.cave_depth, min_depth * np.ones(len(x_values)), color='saddlebrown', alpha=0.3)
+        plt.fill_between(x_values, max_height * np.ones(len(x_values)), mission.cave_height, color='saddlebrown', alpha=0.3)
         plt.plot(self.position[:, 0], self.position[:, 1], label='Trajectory')
         plt.plot(mission.reference, 'r', linestyle='--', label='Reference')
         plt.legend(loc='upper right')
@@ -91,26 +87,29 @@ class Mission:
         # Return an instance of the Mission class
         return cls(reference, cave_height, cave_depth)
 
-
 class ClosedLoop:
-    def __init__(self, plant: Submarine, controller):
+    def __init__(self, plant: Submarine, controller: PDController):
         self.plant = plant
         self.controller = controller
 
-    def simulate(self,  mission: Mission, disturbances: np.ndarray) -> Trajectory:
-
+    def simulate(self, mission: Mission, disturbances: np.ndarray) -> Trajectory:
         T = len(mission.reference)
         if len(disturbances) < T:
             raise ValueError("Disturbances must be at least as long as mission duration")
-        
+
         positions = np.zeros((T, 2))
         actions = np.zeros(T)
         self.plant.reset_state()
 
         for t in range(T):
             positions[t] = self.plant.get_position()
-            observation_t = self.plant.get_depth()
-            # Call your controller here
+            current_depth = self.plant.get_depth()
+            reference = mission.reference[t]
+
+            # Calculate control action
+            actions[t] = self.controller.control_action(reference, current_depth)
+
+            # Update submarine state
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
@@ -118,3 +117,4 @@ class ClosedLoop:
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
+
